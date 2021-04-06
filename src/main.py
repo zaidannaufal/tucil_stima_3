@@ -1,36 +1,35 @@
 #!/usr/bin/env python3
-
 import os
+import gmaps
 def euclidean_distance(koordinat1,koordinat2):
-    return ( (int(koordinat1[0])-int(koordinat2[0]))**2 + (int(koordinat1[1])-int(koordinat2[1]))**2 )**0.5
+    return ((float(koordinat1[0])-float(koordinat2[0]))**2 + (float(koordinat1[1])-float(koordinat2[1]))**2 )**0.5
 
-def do_a_star(node,nodeakhir,graf):
+def do_a_star(node,nodeakhir,graf,node_arrived):
+    node_arrived.append(graf[node]['koordinat'])
     if node == nodeakhir:
-        return nodeakhir
+        return node_arrived
     else:
-        return "{} -> {}".format(node,do_a_star(next_node(node,nodeakhir,graf),nodeakhir,graf))
+        newnode, node_arrived = next_node(node,nodeakhir,graf,node_arrived)
+        return do_a_star(newnode,nodeakhir,graf,node_arrived)
+  
 
-def next_node(node,nodeakhir,graf):
+def next_node(node,nodeakhir,graf,nodeterlewati):
     listtetangga = graf[node]["tetangga"]
     minjarak = (euclidean_distance(graf[node]['koordinat'], graf[listtetangga[0]]['koordinat'])
                 + euclidean_distance(graf[listtetangga[0]]['koordinat'],graf[nodeakhir]['koordinat'])) 
     mintetangga = listtetangga[0]
-    for tetangga in listtetangga:
-        newjarak = (euclidean_distance(graf[node]['koordinat'], graf[tetangga]['koordinat'])
-                    + euclidean_distance(graf[tetangga]['koordinat'],graf[nodeakhir]['koordinat']))
-        if (newjarak < minjarak):
-            minjarak = newjarak
-            mintetangga = tetangga
-    return mintetangga
-
-# jgn gini sorry 
-# def mergeDict(dict1, dict2):
-#    ''' Merge dictionaries and keep values of common keys in list'''
-#    dict3 = {**dict1, **dict2}
-#    for key, value in dict3.items():
-#        if key in dict1 and key in dict2:
-#                dict3[key] = [value , dict1[key]]
-#    return dict3
+    if nodeakhir in listtetangga:
+        return nodeakhir,nodeterlewati
+    else :
+        for tetangga in listtetangga:
+            if(graf[tetangga]['koordinat'] not in node_arrived):
+                newjarak = (euclidean_distance(graf[node]['koordinat'], graf[tetangga]['koordinat'])
+                            + euclidean_distance(graf[tetangga]['koordinat'],graf[nodeakhir]['koordinat']))
+                if (newjarak < minjarak):
+                    minjarak = newjarak
+                    mintetangga = tetangga
+        
+        return mintetangga , nodeterlewati
    
 def todict(text):
     temp = text.split("\n")
@@ -46,11 +45,9 @@ def todict(text):
     dicti = {koordinat[i]:{'koordinat' : koordinat[i + 1],'tetangga':[]} for i in range(0, len(koordinat), 2)}
     matriks = temp[jumlahnode+1:]
     listnode = koordinat[::2]
-    
     for i in range(len(matriks)):
         dicti[listnode[i]]["tetangga"] = makeedge(matriks[i],listnode) 
-    # matriks = {koordinat[i*2]:{'tetangga' : matriks[i]} for i in range(0, len(matriks), 1)}
-    # dicti = mergeDict(dicti,matriks)
+    matriks = {koordinat[i*2]:{'tetangga' : matriks[i]} for i in range(0, len(matriks), 1)}
     return dicti, listnode
 
 
@@ -62,17 +59,39 @@ def makeedge(row,listnode):
             temp.append(listnode[i])
     return temp
 
+def makemap(awal,akhir,graf):
+    gmaps.configure(api_key='AIzaSyBlvE6HXrmuztPHa5sa6JIKXraPGrGlBcc')
+    node_arrived = []
+    path = (do_a_star(awal,akhir,Graf,node_arrived))
+    path = [ [float(x[0]),float(x[1])] for x in path ]
+
+    maps = gmaps.figure()
+    for i in range(len(path)-1):
+      input1 = (path[i][0], path[i][1])
+      input2 = (path[i+1][0], path[i+1][1])
+      temp = gmaps.directions_layer(input1, input2, show_markers=False, travel_mode="WALKING")
+      maps.add_layer(temp)
+    marker = []
+    marker.append((path[0][0] , path[0][1]))
+    marker.append((path[-1][0], path[-1][1]))
+    mark = gmaps.marker_layer(marker)
+    maps.add_layer(mark)
+    return maps    
+
 
 if __name__ == "__main__":
     PATH = os.path.abspath(os.getcwd())
-    filename = "test1.txt"
-    test = os.path.join(PATH,"test",filename)
-    # test = "..\\test\\test1.txt"
+    filename = "buahbatu.txt"
+    test = os.path.join(PATH,"..","test",filename)
     with open(test,"r") as f:
         text = f.read()
         f.close()
     Graf, listnode = todict(text)
-    for key,value in Graf.items():
-        print("{} {}".format(key,value))
-    print(do_a_star("A","H",Graf))
-
+    i = 1
+    print("Berikut merupakan list node:")
+    for node in listnode:
+        print ("{}.{}".format(i,node))
+        i+=1
+    awal = int(input("Masukkan nomor node awal: "))
+    tujuan = int(input("Masukkan nomor node tujuan: "))
+    maps = makemap(listnode[awal-1],listnode[tujuan-1],Graf)
